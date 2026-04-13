@@ -46,14 +46,24 @@
 
         h2 { margin-top: 0; margin-bottom: 16px; }
 
-        /* 📍 Location Badge Styles */
         .location-badge {
             display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 13px;
-            font-weight: bold; margin-bottom: 24px; background-color: var(--warning); color: #fff;
+            font-weight: bold; margin-bottom: 8px; background-color: var(--warning); color: #fff;
             transition: all 0.3s ease;
         }
         .loc-inside { background-color: var(--in-btn); }
         .loc-outside { background-color: var(--out-btn); }
+
+        .debug-text {
+            font-size: 11px;
+            color: var(--text);
+            opacity: 0.6;
+            margin-bottom: 24px;
+            font-family: monospace;
+            background: var(--bg);
+            padding: 6px;
+            border-radius: 4px;
+        }
 
         .form-group { text-align: left; margin-bottom: 30px; }
 
@@ -100,6 +110,8 @@
         <h2>Staff Attendance</h2>
         
         <div id="locationBadge" class="location-badge">📍 Acquiring GPS...</div>
+        
+        <div id="debugLocation" class="debug-text">Your GPS: Loading...</div>
 
         <div class="form-group">
             <label for="staffName">Select Your Profile</label>
@@ -119,7 +131,6 @@
     </div>
 
     <script>
-        // --- Theme Logic ---
         const currentTheme = localStorage.getItem('theme') || 'light';
         if (currentTheme === 'dark') {
             document.body.setAttribute('data-theme', 'dark');
@@ -141,19 +152,18 @@
         // ==========================================
         // 🌍 SMART GEOFENCE CONFIGURATION
         // ==========================================
-        // Your specific IBI Warehouse Coordinates
         const WAREHOUSE_LAT = 8.2568; 
         const WAREHOUSE_LNG = 77.3486; 
         
-        // Allowed distance in meters before they are considered "Outside"
-        const ALLOWED_RADIUS = 100; 
+        // TEMPORARILY INCREASED TO 15km (15000m) FOR TESTING
+        // Change this back to 100 when you are ready for production
+        const ALLOWED_RADIUS = 15000; 
 
         let isInsideWarehouse = false;
         let gpsWatcher = null;
 
-        // Haversine Formula: Calculates distance between two GPS coordinates in meters
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Earth's radius in meters
+            const R = 6371e3; 
             const φ1 = lat1 * Math.PI/180;
             const φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180;
@@ -172,35 +182,35 @@
                 return;
             }
 
-            // Continuously watch the user's position
             gpsWatcher = navigator.geolocation.watchPosition(
                 (position) => {
                     const userLat = position.coords.latitude;
                     const userLng = position.coords.longitude;
+                    
+                    // UPDATE DEBUGGER TEXT
+                    document.getElementById('debugLocation').innerText = `Your GPS: ${userLat.toFixed(6)}, ${userLng.toFixed(6)}`;
+
                     const distance = getDistance(userLat, userLng, WAREHOUSE_LAT, WAREHOUSE_LNG);
                     const badge = document.getElementById('locationBadge');
 
                     if (distance <= ALLOWED_RADIUS) {
                         isInsideWarehouse = true;
-                        badge.innerText = `✅ Inside Warehouse (${distance}m)`;
+                        badge.innerText = `✅ Inside Test Zone (${distance}m)`;
                         badge.className = "location-badge loc-inside";
                     } else {
                         isInsideWarehouse = false;
                         badge.innerText = `⛔ Too Far: ${distance}m away`;
                         badge.className = "location-badge loc-outside";
                         
-                        // AUTO PUNCH OUT LOGIC (If active)
                         const staffName = document.getElementById('staffName').value;
                         if (staffName) {
                             const lastPunch = localStorage.getItem('ibi_test_punch_' + staffName);
-                            // If they are punched IN but leave the radius while app is open
                             if (lastPunch === 'IN') {
-                                submitPunch('OUT', true); // Pass true to signify Auto-Punch
+                                submitPunch('OUT', true); 
                             }
                         }
                     }
                     
-                    // Re-run UI checks now that location is updated
                     checkStaffState();
                 },
                 (error) => {
@@ -212,9 +222,7 @@
             );
         }
 
-        // Start GPS tracking immediately
         startGeofence();
-        // ==========================================
 
         function checkStaffState() {
             const staffName = document.getElementById('staffName').value;
@@ -223,25 +231,21 @@
             
             if (!staffName) return;
 
-            // Using a separate test key so it doesn't mess up their real attendance data
             const lastPunch = localStorage.getItem('ibi_test_punch_' + staffName);
             
-            // Reset base styles
             inBtn.style.opacity = '1';
             outBtn.style.opacity = '1';
             inBtn.disabled = false;
             outBtn.disabled = false;
 
-            // GEOFENCE LOCK RULE: Cannot punch IN if outside warehouse
             if (!isInsideWarehouse) {
                 inBtn.disabled = true;
             }
 
-            // UI STATE RULES
             if (lastPunch === 'IN') {
-                inBtn.disabled = true; // Already In
+                inBtn.disabled = true; 
             } else if (lastPunch === 'OUT') {
-                outBtn.disabled = true; // Already Out
+                outBtn.disabled = true; 
             }
         }
 
@@ -253,10 +257,8 @@
             }
         }
 
-        // 🔗 NEW TEST URL INTEGRATED HERE
         const scriptURL = 'https://script.google.com/macros/s/AKfycbz-FSxUBuzfRBD6nOp26-paZnjw2XtCOJtdD9gs5ZYm5VWTliZcgFxI_8ROxvRAI_s/exec';
 
-        // Added an optional parameter to track if it was an automatic geofence punch
         function submitPunch(action, isAuto = false) {
             const staffName = document.getElementById('staffName').value;
             const statusDiv = document.getElementById('status');
@@ -291,7 +293,6 @@
                         statusDiv.innerText = `Success! ${action} recorded for ${staffName} at ${time}.`;
                         statusDiv.className = 'status-success';
                         
-                        // Only speak if it was a manual action by the user
                         if(!isAuto) speakThankYou();
                         
                         localStorage.setItem('ibi_test_punch_' + staffName, action);
