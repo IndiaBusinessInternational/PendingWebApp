@@ -106,43 +106,9 @@
         #status { margin-top: 20px; font-weight: bold; padding: 12px; border-radius: 8px; display: none; }
         .status-success { background-color: #dcfce7; color: #166534; display: block !important; }
         .status-error { background-color: #fee2e2; color: #991b1b; display: block !important; }
-
-        /* --- CUSTOM PWA INSTALL MODAL STYLES --- */
-        .install-modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;
-            padding: 20px; box-sizing: border-box;
-        }
-        .install-modal {
-            background: var(--surface); width: 100%; max-width: 350px; border-radius: 16px;
-            padding: 24px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            border: 1px solid var(--border);
-        }
-        .install-icon { width: 60px; height: 60px; border-radius: 12px; margin-bottom: 16px; }
-        .install-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; color: var(--text); }
-        .install-desc { font-size: 14px; color: var(--text); opacity: 0.8; margin-bottom: 24px; line-height: 1.5; }
-        .btn-install {
-            width: 100%; padding: 14px; background: #00c5ff; color: #000; font-weight: bold;
-            font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 12px;
-        }
-        .btn-install:hover { background: #00a0d1; }
-        .btn-dismiss {
-            width: 100%; padding: 10px; background: transparent; color: var(--text); opacity: 0.6;
-            font-weight: 600; font-size: 14px; border: none; cursor: pointer;
-        }
     </style>
 </head>
 <body>
-
-    <div id="installModal" class="install-modal-overlay">
-        <div class="install-modal">
-            <img src="logo.png" alt="IBI Logo" class="install-icon" onerror="this.style.display='none'">
-            <div class="install-title">Install IBI Attendance</div>
-            <div class="install-desc">Install this app on your home screen for quick access and background geofencing.</div>
-            <button class="btn-install" id="installBtn">📲 Install App Now</button>
-            <button class="btn-dismiss" onclick="dismissModal()">Not right now</button>
-        </div>
-    </div>
 
     <div class="header">
         <h3 style="margin:0;">IBI Warehouse</h3>
@@ -162,8 +128,8 @@
             <label for="staffName">Select Your Profile</label>
             <select id="staffName" onchange="checkStaffState()">
                 <option value="" disabled selected>-- Choose Name & Designation --</option>
-                <option value="S. Aswin">S. Aswin - WareHouse Packaging Manager</option>
-                <option value="M. Ajay">M. Ajay - WareHouse Catalogue Manager</option>
+                <option value="S Aswin">S. Aswin - WareHouse Packaging Manager</option>
+                <option value="M Ajay">M. Ajay - WareHouse Catalogue Manager</option>
             </select>
         </div>
 
@@ -199,6 +165,7 @@
         // ==========================================
         const WAREHOUSE_LAT = 8.202612; 
         const WAREHOUSE_LNG = 77.240076; 
+        
         const ALLOWED_RADIUS = 50; 
 
         let isInsideWarehouse = false;
@@ -210,6 +177,7 @@
             const φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180;
             const Δλ = (lon2-lon1) * Math.PI/180;
+
             const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
                       Math.cos(φ1) * Math.cos(φ2) *
                       Math.sin(Δλ/2) * Math.sin(Δλ/2);
@@ -250,6 +218,7 @@
                             }
                         }
                     }
+                    
                     checkStaffState();
                 },
                 (error) => {
@@ -357,63 +326,14 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .catch(err => console.log('PWA SW failed: ', err));
+                    .then(registration => {
+                        console.log('PWA ServiceWorker registered successfully');
+                    })
+                    .catch(err => {
+                        console.log('PWA ServiceWorker registration failed: ', err);
+                    });
             });
         }
-
-        // --- AGGRESSIVE INSTALL LOGIC ---
-        let deferredPrompt;
-        const installModal = document.getElementById('installModal');
-        const installBtn = document.getElementById('installBtn');
-
-        // Check if the app is already installed and running standalone
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-        if (!isStandalone) {
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                
-                // Pop it up shortly after page load
-                setTimeout(showModal, 1500);
-            });
-        }
-
-        function showModal() {
-            if (deferredPrompt && !isStandalone) {
-                installModal.style.display = 'flex';
-            }
-        }
-
-        // When they try to click "Not right now"
-        function dismissModal() {
-            installModal.style.display = 'none';
-            // THE AGGRESSIVE LOOP: Pop back up in exactly 45 seconds
-            setTimeout(showModal, 45000); 
-        }
-
-        // When they click the Install button
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                installModal.style.display = 'none';
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                
-                if (outcome === 'accepted') {
-                    deferredPrompt = null; // Success! They installed it.
-                } else {
-                    // They hit Cancel on the Chrome prompt. Punish them with the 45-second loop.
-                    setTimeout(showModal, 45000);
-                }
-            }
-        });
-
-        // Kill the loop permanently once successfully installed
-        window.addEventListener('appinstalled', () => {
-            installModal.style.display = 'none';
-            deferredPrompt = null;
-            console.log('PWA was installed successfully');
-        });
     </script>
 
 </body>
